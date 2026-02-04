@@ -1,14 +1,19 @@
-import { delayShipment } from "../services/api";
-
 export default function ShipmentsTable({
   shipments,
-  onRefresh,
   selectedShipmentId,
-  onSelect
+  onSelect,
+  predictedEtas
 }) {
-  const handleDelay = async (id) => {
-    await delayShipment(id);
-    onRefresh();
+  const getRiskLevel = (shipment) => {
+    const baseEta = predictedEtas?.[shipment.shipment_id]?.base_eta_days;
+    const predicted = predictedEtas?.[shipment.shipment_id]?.predicted_eta_days;
+    const base = Number(baseEta ?? shipment.eta_days ?? 0);
+    const predictedNum = Number(predicted);
+    const delayDays = Number.isFinite(predictedNum)
+      ? Math.max(0, predictedNum - base)
+      : Number(shipment.delay_days || 0);
+
+    return delayDays >= 2 ? "high" : "low";
   };
 
   return (
@@ -20,10 +25,12 @@ export default function ShipmentsTable({
           <tr>
             <th>ID</th>
             <th>Product</th>
+            <th>Origin</th>
             <th>Destination</th>
-            <th>ETA</th>
+            <th>ETA (days)</th>
             <th>Status</th>
-            <th>Action</th>
+            <th>Predicted ETA (days)</th>
+            <th>Risk</th>
           </tr>
         </thead>
         <tbody>
@@ -37,21 +44,59 @@ export default function ShipmentsTable({
               >
               <td>{s.shipment_id}</td>
               <td>{s.product}</td>
+              <td>{s.origin || "N/A"}</td>
               <td>{s.destination}</td>
-              <td>{s.eta_days} days</td>
+              <td>
+                {Number.isFinite(Number(predictedEtas?.[s.shipment_id]?.base_eta_days))
+                  ? `${predictedEtas[s.shipment_id].base_eta_days} days`
+                  : Number.isFinite(Number(s.eta_days))
+                    ? `${s.eta_days} days`
+                    : "N/A"}
+              </td>
               <td>
                 <span className={`badge ${s.status === "Delayed" ? "delayed" : "transit"}`}>
                   {s.status}
                 </span>
               </td>
               <td>
-                <button onClick={() => handleDelay(s.shipment_id)}>
-                  Simulate Delay
-                </button>
+                {predictedEtas?.[s.shipment_id]?.predicted_eta_days ? (
+                  <span
+                    title={
+                      predictedEtas?.[s.shipment_id]?.delay_reason
+                        ? `Delay driver: ${predictedEtas[s.shipment_id].delay_reason}`
+                        : undefined
+                    }
+                  >
+                    {predictedEtas[s.shipment_id].predicted_eta_days} days
+                  </span>
+                ) : (
+                  "N/A"
+                )}
+                {predictedEtas?.[s.shipment_id]?.delay_reason ? (
+                  <div className="table-subtext">
+                    Driver: {predictedEtas[s.shipment_id].delay_reason}
+                  </div>
+                ) : null}
+              </td>
+              <td>
+                {(() => {
+                  const risk = getRiskLevel(s);
+                  const label = risk === "high" ? "High" : "Low";
+                  return (
+                    <button
+                      type="button"
+                      className={`risk-button ${risk === "high" ? "risk-high" : "risk-low"}`}
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <span className="risk-dot" />
+                      {label}
+                    </button>
+                  );
+                })()}
               </td>
             </tr>
-            );
-          })}
+          );
+        })}
         </tbody>
       </table>
     </div>

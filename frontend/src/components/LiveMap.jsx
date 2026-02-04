@@ -1,4 +1,4 @@
-import { MapContainer, TileLayer, Marker, Polyline } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Polyline, Tooltip } from "react-leaflet";
 import { useEffect, useState } from "react";
 import L from "leaflet";
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
@@ -18,7 +18,7 @@ const redMarkerIcon = new L.Icon.Default({ className: "marker-red" });
 const DEFAULT_CENTER = [20, 0];
 const DEFAULT_ZOOM = 3;
 
-function LiveMap({ activeShipmentId }) {
+function LiveMap({ activeShipmentId, delayDriver }) {
   const [route, setRoute] = useState([]);
   const [position, setPosition] = useState(null);
 
@@ -55,6 +55,11 @@ function LiveMap({ activeShipmentId }) {
 
   const center = position || (route.length ? [route[0].lat, route[0].lng] : DEFAULT_CENTER);
   const zoom = route.length ? 6 : DEFAULT_ZOOM;
+  const trafficLabel = delayDriver?.includes("Traffic")
+    ? delayDriver === "Traffic + Weather"
+      ? "Delay: Traffic + Weather"
+      : "Delay: Heavy traffic"
+    : null;
 
   return (
     <MapContainer
@@ -68,7 +73,15 @@ function LiveMap({ activeShipmentId }) {
       />
 
       {route.length > 0 && <Polyline positions={route.map((p) => [p.lat, p.lng])} />}
-      {position && <Marker position={position} icon={redMarkerIcon} />}
+      {position && (
+        <Marker position={position} icon={redMarkerIcon}>
+          {trafficLabel ? (
+            <Tooltip direction="top" offset={[0, -10]} permanent>
+              {trafficLabel}
+            </Tooltip>
+          ) : null}
+        </Marker>
+      )}
     </MapContainer>
   );
 }

@@ -5,7 +5,8 @@ from services.inventory import get_inventory
 from services.shipments import get_shipments,update_position,initialize_live_shipments
 from services.suppliers import get_suppliers
 from services.analytics import get_kpis
-from state import SHIPMENT_STATE
+from services.eta import get_predicted_etas
+from state import SHIPMENT_STATE, add_event
 
 app = FastAPI(title="SCM Demo API")
 
@@ -27,6 +28,13 @@ def shipments():
     initialize_live_shipments(shipments)
     return shipments
 
+@app.get("/shipments/eta")
+def shipments_eta():
+    df = load_data()
+    shipments = get_shipments(df)
+    initialize_live_shipments(shipments)
+    return get_predicted_etas(shipments)
+
 @app.get("/suppliers")
 def suppliers():
     df = load_data()
@@ -39,12 +47,41 @@ def analytics():
     return get_kpis(df)
 
 @app.post("/shipments/{shipment_id}/delay")
-def delay_shipment(shipment_id: str, days: int = 2):
+def delay_shipment(shipment_id: str, days: int = 2, reason: str = "Operational delay"):
     if shipment_id in SHIPMENT_STATE:
-        SHIPMENT_STATE[shipment_id]["status"] = "Delayed"
-        SHIPMENT_STATE[shipment_id]["delay_days"] += days
-        return {"message": "Shipment delayed", "shipment_id": shipment_id}
+        state = SHIPMENT_STATE[shipment_id]
+        state["status"] = "Delayed"
+        state["delay_days"] += days
+        lat = None
+        lng = None
+        if state.get("route_points"):
+            point = state["route_points"][state["current_index"]]
+            if isinstance(point, dict):
+                lat = point.get("lat")
+                lng = point.get("lng")
+            else:
+                lat, lng = point
+
+        state["delay_reason"] = reason
+
+        add_event(
+            shipment_id,
+            "DELAYED",
+            f"Delay added: {reason} (+{days} days)",
+            {"reason": reason, "days": days, "lat": lat, "lng": lng}
+        )
+
+        return {"message": "Shipment delayed", "shipment_id": shipment_id, "reason": reason}
     return {"error": "Shipment not found"}
+
+@app.get("/shipments/{shipment_id}/timeline")
+def shipment_timeline(shipment_id: str):
+    state = SHIPMENT_STATE.get(shipment_id)
+    if not state:
+        return {"error": "Shipment not initialized"}
+
+    events = sorted(state.get("events", []), key=lambda e: e.get("timestamp", 0))
+    return {"shipment_id": shipment_id, "events": events}
 
 @app.get("/shipments/{shipment_id}/position")
 def get_live_position(shipment_id: str):

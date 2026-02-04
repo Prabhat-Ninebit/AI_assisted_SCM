@@ -1,3 +1,6 @@
+from services.eta import get_osrm_base_eta_days
+
+
 def get_suppliers(df):
     suppliers = {}
 
@@ -9,7 +12,11 @@ def get_suppliers(df):
             "avg_defect_rate": []
         })
 
-        suppliers[name]["avg_lead_time"].append(row["Lead time"])
+        route_name = row.get("Routes")
+        osrm_eta_days = get_osrm_base_eta_days(route_name)
+        lead_time_days = osrm_eta_days if osrm_eta_days is not None else row["Lead time"]
+
+        suppliers[name]["avg_lead_time"].append(lead_time_days)
         suppliers[name]["avg_defect_rate"].append(row["Defect rates"])
 
     return [

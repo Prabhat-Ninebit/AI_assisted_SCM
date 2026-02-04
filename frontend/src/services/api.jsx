@@ -20,8 +20,12 @@ export const fetchAnalytics = async () => {
   return res.json();
 };
 
-export const delayShipment = async (id) => {
-  await fetch(`${API_BASE}/shipments/${id}/delay`, {
-    method: "POST"
-  });
+export const fetchPredictedEtas = async () => {
+  const res = await fetch(`${API_BASE}/shipments/eta`);
+  return res.json();
+};
+
+export const fetchShipmentTimeline = async (id) => {
+  const res = await fetch(`${API_BASE}/shipments/${id}/timeline`);
+  return res.json();
 };
