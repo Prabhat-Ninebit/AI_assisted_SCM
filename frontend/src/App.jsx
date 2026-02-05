@@ -38,7 +38,24 @@ export default function App() {
     });
     fetchAnalytics().then(setAnalytics);
     fetchSuppliers().then(setSuppliers);
-    fetchPredictedEtas().then((data) => setPredictedEtas(data.etas || {}));
+
+    let cancelled = false;
+
+    const loadEtas = () => {
+      fetchPredictedEtas().then((data) => {
+        if (!cancelled) {
+          setPredictedEtas(data.etas || {});
+        }
+      });
+    };
+
+    loadEtas();
+    const interval = setInterval(loadEtas, 10000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, []);
 
   useEffect(() => {

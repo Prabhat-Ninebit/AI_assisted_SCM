@@ -43,6 +43,21 @@ def _round_key(lat, lng):
     return round(lat, 2), round(lng, 2)
 
 
+def _sample_route_indexes(total_points, sample_size):
+    if total_points <= 0:
+        return []
+    if total_points <= sample_size:
+        return list(range(total_points))
+
+    sample_size = max(2, sample_size)
+    indexes = []
+    for i in range(sample_size):
+        idx = round(i * (total_points - 1) / (sample_size - 1))
+        if not indexes or idx != indexes[-1]:
+            indexes.append(idx)
+    return indexes
+
+
 def get_osrm_base_eta_days(route_name):
     route_key = str(route_name).strip()
     cached = _cache_get(_OSRM_CACHE, route_key)
@@ -249,6 +264,45 @@ def build_predicted_eta(shipment_id, base_eta_days):
             "traffic": traffic_meta,
             "weather": weather_meta
         }
+    }
+
+
+def get_route_traffic_hotspots(route_points, sample_size=30, threshold=1.3):
+    if not route_points:
+        return {
+            "hotspots": [],
+            "sampled_points": 0,
+            "threshold": threshold
+        }
+
+    safe_sample_size = max(5, min(int(sample_size), 60))
+    indexes = _sample_route_indexes(len(route_points), safe_sample_size)
+    hotspots = []
+
+    for idx in indexes:
+        point = route_points[idx]
+        lat, lng = _normalize_point(point)
+        if lat is None or lng is None:
+            continue
+
+        factor, meta = get_traffic_factor(lat, lng)
+        if factor < threshold:
+            continue
+
+        severity = "high" if factor >= 1.6 else "medium"
+        hotspots.append({
+            "lat": lat,
+            "lng": lng,
+            "factor": factor,
+            "current_speed": meta.get("current_speed"),
+            "free_flow_speed": meta.get("free_flow_speed"),
+            "severity": severity
+        })
+
+    return {
+        "hotspots": hotspots,
+        "sampled_points": len(indexes),
+        "threshold": threshold
     }
 
 

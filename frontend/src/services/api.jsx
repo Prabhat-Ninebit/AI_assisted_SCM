@@ -29,3 +29,12 @@ export const fetchShipmentTimeline = async (id) => {
   const res = await fetch(`${API_BASE}/shipments/${id}/timeline`);
   return res.json();
 };
+
+export const fetchRouteTraffic = async (id, { sampleSize = 30, threshold = 1.3 } = {}) => {
+  const params = new URLSearchParams({
+    sample_size: String(sampleSize),
+    threshold: String(threshold)
+  });
+  const res = await fetch(`${API_BASE}/shipments/${id}/traffic?${params}`);
+  return res.json();
+};

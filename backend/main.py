@@ -1,3 +1,4 @@
+import time
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dataloader import load_data
@@ -5,7 +6,7 @@ from services.inventory import get_inventory
 from services.shipments import get_shipments,update_position,initialize_live_shipments
 from services.suppliers import get_suppliers
 from services.analytics import get_kpis
-from services.eta import get_predicted_etas
+from services.eta import get_predicted_etas, get_route_traffic_hotspots
 from state import SHIPMENT_STATE, add_event
 
 app = FastAPI(title="SCM Demo API")
@@ -122,3 +123,19 @@ def get_route(shipment_id: str):
         "shipment_id": shipment_id,
         "route": route
     }
+
+
+@app.get("/shipments/{shipment_id}/traffic")
+def get_route_traffic(shipment_id: str, sample_size: int = 30, threshold: float = 1.3):
+    if shipment_id not in SHIPMENT_STATE:
+        return {"error": "Shipment not initialized"}
+
+    route_points = SHIPMENT_STATE[shipment_id]["route_points"]
+    payload = get_route_traffic_hotspots(
+        route_points,
+        sample_size=sample_size,
+        threshold=threshold
+    )
+    payload["shipment_id"] = shipment_id
+    payload["generated_at"] = time.time()
+    return payload
