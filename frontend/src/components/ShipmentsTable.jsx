@@ -12,8 +12,11 @@ export default function ShipmentsTable({
     const delayDays = Number.isFinite(predictedNum)
       ? Math.max(0, predictedNum - base)
       : Number(shipment.delay_days || 0);
+    const delayHours = delayDays * 24;
 
-    return delayDays >= 2 ? "high" : "low";
+    if (delayHours > 4) return "high";
+    if (delayHours > 2) return "medium";
+    return "low";
   };
 
   return (
@@ -81,11 +84,13 @@ export default function ShipmentsTable({
               <td>
                 {(() => {
                   const risk = getRiskLevel(s);
-                  const label = risk === "high" ? "High" : "Low";
+                  const label = risk === "high" ? "High" : risk === "medium" ? "Medium" : "Low";
                   return (
                     <button
                       type="button"
-                      className={`risk-button ${risk === "high" ? "risk-high" : "risk-low"}`}
+                      className={`risk-button ${
+                        risk === "high" ? "risk-high" : risk === "medium" ? "risk-medium" : "risk-low"
+                      }`}
                       onClick={(event) => event.stopPropagation()}
                     >
                       <span className="risk-dot" />
